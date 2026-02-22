@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Placement Portal{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="jumbotron bg-light p-5 rounded">
+            <h1 class="display-4">Welcome to Placement Portal</h1>
+            <p class="lead">Streamline your campus recruitment process with our comprehensive placement management system.</p>
+            <hr class="my-4">
+            <p>Connect companies with talented students and manage placement drives efficiently.</p>
+            
+            {% if not session.get('user_id') %}
+                <div class="mt-4">
+                    <a class="btn btn-primary btn-lg me-2" href="{{ url_for('login') }}" role="button">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                    <a class="btn btn-success btn-lg me-2" href="{{ url_for('register_student') }}" role="button">
+                        <i class="fas fa-user-graduate"></i> Register as Student
+                    </a>
+                    <a class="btn btn-info btn-lg" href="{{ url_for('register_company') }}" role="button">
+                        <i class="fas fa-building"></i> Register as Company
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-user-shield fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">For Admin</h5>
+                <p class="card-text">Manage companies, students, and placement drives. Approve registrations and monitor activities.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-building fa-3x text-success mb-3"></i>
+                <h5 class="card-title">For Companies</h5>
+                <p class="card-text">Create placement drives, view applications, and recruit talented students for your organization.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-user-graduate fa-3x text-info mb-3"></i>
+                <h5 class="card-title">For Students</h5>
+                <p class="card-text">Apply for placement drives, track your applications, and land your dream job.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
