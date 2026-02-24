@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Placement Portal{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-user-shield"></i> Admin Dashboard</h2>
+<hr>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-user-graduate"></i> Total Students</h5>
+                <h2>{{ total_students }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-building"></i> Total Companies</h5>
+                <h2>{{ total_companies }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-briefcase"></i> Placement Drives</h5>
+                <h2>{{ total_drives }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-file-alt"></i> Applications</h5>
+                <h2>{{ total_applications }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Company Approvals -->
+<div class="card mb-4">
+    <div class="card-header bg-warning">
+        <h5 class="mb-0"><i class="fas fa-hourglass-half"></i> Pending Company Approvals ({{ pending_companies|length }})</h5>
+    </div>
+    <div class="card-body">
+        {% if pending_companies %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Company Name</th>
+                            <th>Email</th>
+                            <th>Website</th>
+                            <th>HR Contact</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for company in pending_companies %}
+                        <tr>
+                            <td>{{ company.id }}</td>
+                            <td>{{ company.name }}</td>
+                            <td>{{ company.contact_email }}</td>
+                            <td>
+                                {% if company.website %}
+                                    <a href="{{ company.website }}" target="_blank">{{ company.website }}</a>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ company.hr_contact or 'N/A' }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('approve_company', company_id=company.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-success">
+                                        <i class="fas fa-check"></i> Approve
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('reject_company', company_id=company.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to reject this company?');">
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="fas fa-times"></i> Reject
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">No pending company approvals.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Pending Drive Approvals -->
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="fas fa-clock"></i> Pending Drive Approvals ({{ pending_drives|length }})</h5>
+    </div>
+    <div class="card-body">
+        {% if pending_drives %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Job Title</th>
+                            <th>Company</th>
+                            <th>Min CGPA</th>
+                            <th>Deadline</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for drive in pending_drives %}
+                        <tr>
+                            <td>{{ drive.id }}</td>
+                            <td>{{ drive.job_title }}</td>
+                            <td>{{ drive.company.name }}</td>
+                            <td>{{ drive.min_cgpa or 'N/A' }}</td>
+                            <td>{{ drive.application_deadline }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('approve_drive', drive_id=drive.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-success">
+                                        <i class="fas fa-check"></i> Approve
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('reject_drive', drive_id=drive.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to reject this drive?');">
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="fas fa-times"></i> Reject
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">No pending drive approvals.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-cogs"></i> Quick Actions</h5>
+    </div>
+    <div class="card-body">
+        <a href="{{ url_for('students') }}" class="btn btn-primary me-2">
+            <i class="fas fa-users"></i> View All Students
+        </a>
+        <a href="{{ url_for('companies') }}" class="btn btn-success me-2">
+            <i class="fas fa-building"></i> View All Companies
+        </a>
+        <a href="{{ url_for('placements') }}" class="btn btn-info">
+            <i class="fas fa-briefcase"></i> View Placements
+        </a>
+    </div>
+</div>
+{% endblock %}

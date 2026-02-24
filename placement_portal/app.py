@@ -21,7 +21,7 @@ class Admin(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)    
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -41,7 +41,7 @@ class Student(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -66,8 +66,7 @@ class Company(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)  
-
+        self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -340,8 +339,99 @@ def student_dashboard():
 
 
 
+# Company Approval
+@app.route('/admin/approve_company/<int:company_id>', methods=['POST'])
+@login_required(role='admin')
+def approve_company(company_id):
+    company = Company.query.get_or_404(company_id)
+    company.is_approved = True
+    try:
+        db.session.commit()
+        flash(f'Company "{company.name}" has been approved successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error approving company: {str(e)}', 'error')
+    return redirect(url_for('admin_dashboard'))
 
-// ...existing code...
+
+@app.route('/admin/reject_company/<int:company_id>', methods=['POST'])
+@login_required(role='admin')
+def reject_company(company_id):
+    company = Company.query.get_or_404(company_id)
+    try:
+        db.session.delete(company)
+        db.session.commit()
+        flash(f'Company "{company.name}" has been rejected and removed.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error rejecting company: {str(e)}', 'error')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/blacklist_company/<int:company_id>', methods=['POST'])
+@login_required(role='admin')
+def blacklist_company(company_id):
+    company = Company.query.get_or_404(company_id)
+    company.is_blacklisted = not company.is_blacklisted
+    status = "blacklisted" if company.is_blacklisted else "unblacklisted"
+    try:
+        db.session.commit()
+        flash(f'Company "{company.name}" has been {status}.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error: {str(e)}', 'error')
+    return redirect(url_for('companies'))
+
+
+# Drive Approval  
+@app.route('/admin/approve_drive/<int:drive_id>', methods=['POST'])
+@login_required(role='admin')
+def approve_drive(drive_id):
+    drive = PlacementDrive.query.get_or_404(drive_id)
+    drive.status = 'Approved'
+    try:
+        db.session.commit()
+        flash(f'Placement drive "{drive.job_title}" has been approved!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error approving drive: {str(e)}', 'error')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/reject_drive/<int:drive_id>', methods=['POST'])
+@login_required(role='admin')
+def reject_drive(drive_id):
+    drive = PlacementDrive.query.get_or_404(drive_id)
+    drive.status = 'Rejected'
+    try:
+        db.session.commit()
+        flash(f'Placement drive "{drive.job_title}" has been rejected.', 'warning')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error rejecting drive: {str(e)}', 'error')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/blacklist_student/<int:student_id>', methods=['POST'])
+@login_required(role='admin')
+def blacklist_student(student_id):
+    student = Student.query.get_or_404(student_id)
+    student.is_blacklisted = not student.is_blacklisted
+    status = "blacklisted" if student.is_blacklisted else "unblacklisted"
+    try:
+        db.session.commit()
+        flash(f'Student "{student.name}" has been {status}.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error: {str(e)}', 'error')
+    return redirect(url_for('students'))
+
+# search functionality
+@app.route('/admin/search/search_students')
+@app.route('/admin/search/search_companies')
+
+
+
 
 def init_db():
     """Initialize database with default admin"""

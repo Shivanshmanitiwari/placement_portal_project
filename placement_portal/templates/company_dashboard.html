@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Company Dashboard - Placement Portal{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-building"></i> Company Dashboard</h2>
+<hr>
+
+<!-- Company Info Card -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Company Information</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Company Name:</strong> {{ company.name }}</p>
+                <p><strong>Email:</strong> {{ company.contact_email }}</p>
+                <p><strong>Website:</strong> {{ company.website or 'N/A' }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>HR Contact:</strong> {{ company.hr_contact or 'N/A' }}</p>
+                <p><strong>Status:</strong> 
+                    <span class="badge bg-success">Approved</span>
+                </p>
+                <button class="btn btn-sm btn-primary">Edit Profile</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Drive Button -->
+<div class="mb-4">
+    <button class="btn btn-success">
+        <i class="fas fa-plus"></i> Create New Placement Drive
+    </button>
+</div>
+
+<!-- My Placement Drives -->
+<div class="card">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="fas fa-briefcase"></i> My Placement Drives ({{ drives|length }})</h5>
+    </div>
+    <div class="card-body">
+        {% if drives %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Job Title</th>
+                            <th>Deadline</th>
+                            <th>Status</th>
+                            <th>Applications</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for drive in drives %}
+                        <tr>
+                            <td>{{ drive.id }}</td>
+                            <td>{{ drive.job_title }}</td>
+                            <td>{{ drive.application_deadline }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if drive.status == 'Approved' else ('warning' if drive.status == 'Pending' else 'secondary') }}">
+                                    {{ drive.status }}
+                                </span>
+                            </td>
+                            <td>{{ drive.applications|length }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary">View</button>
+                                <button class="btn btn-sm btn-warning">Edit</button>
+                                <button class="btn btn-sm btn-danger">Close</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">You haven't created any placement drives yet.</p>
+            <button class="btn btn-success">
+                <i class="fas fa-plus"></i> Create Your First Drive
+            </button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

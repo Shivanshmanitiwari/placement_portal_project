@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Student Dashboard - Placement Portal{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-user-graduate"></i> Student Dashboard</h2>
+<hr>
+
+<!-- Student Profile Card -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-user"></i> My Profile</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Name:</strong> {{ student.name }}</p>
+                <p><strong>Email:</strong> {{ student.email }}</p>
+                <p><strong>Department:</strong> {{ student.department or 'N/A' }}</p>
+                <p><strong>Year:</strong> {{ student.year or 'N/A' }}</p>
+                <p><strong>CGPA:</strong> {{ student.cgpa or 'N/A' }}</p>
+                <button class="btn btn-sm btn-primary">Edit Profile</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Application Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <h3>{{ applications|length }}</h3>
+                        <p class="text-muted">Total Applied</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h3>{{ applications|selectattr('status', 'equalto', 'Shortlisted')|list|length }}</h3>
+                        <p class="text-muted">Shortlisted</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h3>{{ applications|selectattr('status', 'equalto', 'Selected')|list|length }}</h3>
+                        <p class="text-muted">Selected</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h3>{{ applications|selectattr('status', 'equalto', 'Rejected')|list|length }}</h3>
+                        <p class="text-muted">Rejected</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Available Placement Drives -->
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="fas fa-briefcase"></i> Available Placement Drives</h5>
+    </div>
+    <div class="card-body">
+        {% if approved_drives %}
+            <div class="row">
+                {% for drive in approved_drives %}
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ drive.job_title }}</h5>
+                            <h6 class="card-subtitle mb-2 text-muted">{{ drive.company.name }}</h6>
+                            <p class="card-text">{{ drive.job_description[:100] if drive.job_description else 'No description available' }}...</p>
+                            <p><strong>Deadline:</strong> {{ drive.application_deadline }}</p>
+                            <p><strong>Min CGPA:</strong> {{ drive.min_cgpa or 'N/A' }}</p>
+                            <button class="btn btn-sm btn-primary">Apply Now</button>
+                            <button class="btn btn-sm btn-secondary">View Details</button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted">No placement drives available at the moment.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- My Applications -->
+<div class="card">
+    <div class="card-header bg-warning">
+        <h5 class="mb-0"><i class="fas fa-file-alt"></i> My Applications</h5>
+    </div>
+    <div class="card-body">
+        {% if applications %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Job Title</th>
+                            <th>Company</th>
+                            <th>Applied Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for application in applications %}
+                        <tr>
+                            <td>{{ application.placement_drive.job_title }}</td>
+                            <td>{{ application.placement_drive.company.name }}</td>
+                            <td>{{ application.application_date.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if application.status == 'Selected' else ('primary' if application.status == 'Shortlisted' else ('danger' if application.status == 'Rejected' else 'secondary')) }}">
+                                    {{ application.status }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">You haven't applied to any drives yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

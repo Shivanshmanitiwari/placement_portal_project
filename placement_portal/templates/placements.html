@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}All Placements - Placement Portal{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-briefcase"></i> All Placements</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        {% if placements %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Student Name</th>
+                            <th>Company</th>
+                            <th>Position</th>
+                            <th>Package (LPA)</th>
+                            <th>Placement Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for placement in placements %}
+                        <tr>
+                            <td>{{ placement.id }}</td>
+                            <td>{{ placement.student.name }}</td>
+                            <td>{{ placement.company.name }}</td>
+                            <td>{{ placement.position }}</td>
+                            <td>{{ placement.package or 'N/A' }}</td>
+                            <td>{{ placement.placement_date }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if placement.status == 'Confirmed' else 'warning' }}">
+                                    {{ placement.status }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">No placements recorded yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
