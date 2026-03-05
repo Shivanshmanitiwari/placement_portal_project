@@ -456,6 +456,157 @@ def update_application_status(app_id):
     return redirect(url_for('view_drive_applications', drive_id=application.drive_id))
 
 
+@app.route('/company/drive/<int:drive_id>/edit', methods=['GET', 'POST'])
+@login_required(role='company')
+def edit_drive(drive_id):
+    company_id = session.get('user_id')
+    drive = PlacementDrive.query.get_or_404(drive_id)
+    
+    if drive.company_id != company_id:
+        flash('Unauthorized access.', 'error')
+        return redirect(url_for('company_dashboard'))
+    
+    if drive.status != 'Pending':
+        flash('You can only edit drives that are pending approval.', 'error')
+        return redirect(url_for('company_dashboard'))
+    
+    if request.method == 'POST':
+        job_title = request.form.get('job_title', '').strip()
+        job_description = request.form.get('job_description', '').strip()
+        eligibility_criteria = request.form.get('eligibility_criteria', '').strip()
+        min_cgpa_str = request.form.get('min_cgpa', '').strip()
+        application_deadline = request.form.get('application_deadline', '').strip()
+        
+        if not job_title:
+            flash('Job title is required.', 'error')
+            return render_template('edit_drive.html', drive=drive)
+        
+        if not application_deadline:
+            flash('Application deadline is required.', 'error')
+            return render_template('edit_drive.html', drive=drive)
+        
+        try:
+            deadline = datetime.strptime(application_deadline, '%Y-%m-%d').date()
+            if deadline < datetime.today().date():
+                flash('Application deadline cannot be in the past.', 'error')
+                return render_template('edit_drive.html', drive=drive)
+        except ValueError:
+            flash('Invalid date format.', 'error')
+            return render_template('edit_drive.html', drive=drive)
+        
+        min_cgpa = None
+        if min_cgpa_str:
+            try:
+                min_cgpa = float(min_cgpa_str)
+                if min_cgpa < 0.0 or min_cgpa > 10.0:
+                    flash('Minimum CGPA must be between 0.0 and 10.0.', 'error')
+                    return render_template('edit_drive.html', drive=drive)
+            except ValueError:
+                flash('Invalid CGPA format.', 'error')
+                return render_template('edit_drive.html', drive=drive)
+        
+        try:
+            drive.job_title = job_title
+            drive.job_description = job_description if job_description else None
+            drive.eligibility_criteria = eligibility_criteria if eligibility_criteria else None
+            drive.min_cgpa = min_cgpa
+            drive.application_deadline = deadline
+            db.session.commit()
+            flash('Drive updated successfully!', 'success')
+            return redirect(url_for('company_dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error updating drive.', 'error')
+            return render_template('edit_drive.html', drive=drive)
+    
+    return render_template('edit_drive.html', drive=drive)
+
+
+@app.route('/company/drive/<int:drive_id>/close', methods=['POST'])
+@login_required(role='company')
+def close_drive(drive_id):
+    company_id = session.get('user_id')
+    drive = PlacementDrive.query.get_or_404(drive_id)
+    
+    if drive.company_id != company_id:
+        flash('Unauthorized access.', 'error')
+        return redirect(url_for('company_dashboard'))
+    
+    if drive.status != 'Approved':
+        flash('You can only close approved drives.', 'error')
+        return redirect(url_for('company_dashboard'))
+    
+    try:
+        drive.status = 'Closed'
+        db.session.commit()
+        flash('Drive closed successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error closing drive.', 'error')
+    
+    return redirect(url_for('company_dashboard'))
+
+
+@app.route('/company/drive/<int:drive_id>/delete', methods=['POST'])
+@login_required(role='company')
+def delete_drive(drive_id):
+    company_id = session.get('user_id')
+    drive = PlacementDrive.query.get_or_404(drive_id)
+    
+    if drive.company_id != company_id:
+        flash('Unauthorized access.', 'error')
+        return redirect(url_for('company_dashboard'))
+    
+    if drive.status == 'Approved' and len(drive.applications) > 0:
+        flash('Cannot delete a drive with existing applications. Close it instead.', 'error')
+        return redirect(url_for('company_dashboard'))
+    
+    try:
+        db.session.delete(drive)
+        db.session.commit()
+        flash('Drive deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error deleting drive.', 'error')
+    
+    return redirect(url_for('company_dashboard'))
+
+
+@app.route('/company/edit_profile', methods=['GET', 'POST'])
+@login_required(role='company')
+def edit_company_profile():
+    company_id = session.get('user_id')
+    company = Company.query.get_or_404(company_id)
+    
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        contact_email = request.form.get('contact_email', '').strip()
+        website = request.form.get('website', '').strip()
+        hr_contact = request.form.get('hr_contact', '').strip()
+        
+        if not name:
+            flash('Company name is required.', 'error')
+            return render_template('edit_company_profile.html', company=company)
+        
+        if not contact_email:
+            flash('Contact email is required.', 'error')
+            return render_template('edit_company_profile.html', company=company)
+        
+        try:
+            company.name = name
+            company.contact_email = contact_email
+            company.website = website if website else None
+            company.hr_contact = hr_contact if hr_contact else None
+            db.session.commit()
+            flash('Profile updated successfully!', 'success')
+            return redirect(url_for('company_dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error updating profile.', 'error')
+            return render_template('edit_company_profile.html', company=company)
+    
+    return render_template('edit_company_profile.html', company=company)
+
 
 @app.route('/student/dashboard')
 @login_required(role='student')
@@ -683,6 +834,52 @@ def upload_resume():
         flash('Invalid file type. Allowed types: pdf, doc, docx.', 'error')
     return redirect(url_for('student_dashboard'))
 
+
+@app.route('/student/drive/<int:drive_id>')
+@login_required(role='student')
+def view_drive_details(drive_id):
+    student_id = session.get('user_id')
+    student = Student.query.get_or_404(student_id)
+    drive = PlacementDrive.query.get_or_404(drive_id)
+    
+    # Check if student already applied
+    application = Application.query.filter_by(student_id=student_id, drive_id=drive_id).first()
+    
+    # Check eligibility
+    eligible = True
+    reasons = []
+    
+    if drive.status != 'Approved':
+        eligible = False
+        reasons.append('Drive is not currently open for applications')
+    
+    if drive.application_deadline < datetime.utcnow().date():
+        eligible = False
+        reasons.append('Application deadline has passed')
+    
+    if drive.min_cgpa and student.cgpa and student.cgpa < drive.min_cgpa:
+        eligible = False
+        reasons.append(f'Your CGPA ({student.cgpa}) is below the requirement ({drive.min_cgpa})')
+    
+    if student.is_blacklisted:
+        eligible = False
+        reasons.append('Your account is blacklisted')
+    
+    return render_template('drive_details.html', 
+                         drive=drive, 
+                         application=application,
+                         eligible=eligible,
+                         reasons=reasons)
+
+
+@app.route('/student/placement_history')
+@login_required(role='student')
+def student_placement_history():
+    student_id = session.get('user_id')
+    placements = Placement.query.filter_by(student_id=student_id).all()
+    return render_template('placement_history.html', placements=placements)
+
+
 # Company Approval
 @app.route('/admin/approve_company/<int:company_id>', methods=['POST'])
 @login_required(role='admin')
@@ -771,10 +968,224 @@ def blacklist_student(student_id):
     return redirect(url_for('students'))
 
 # search functionality
-@app.route('/admin/search/search_students')
-@app.route('/admin/search/search_companies')
+@app.route('/admin/search_students', methods=['GET'])
+@login_required(role='admin')
+def search_students():
+    query = request.args.get('query', '').strip()
+    if query:
+        students = Student.query.filter(
+            (Student.name.ilike(f'%{query}%')) |
+            (Student.email.ilike(f'%{query}%')) |
+            (Student.phone.ilike(f'%{query}%')) if query else True
+        ).all()
+    else:
+        students = Student.query.all()
+    return render_template('students.html', students=students, query=query)
 
 
+@app.route('/admin/search_companies', methods=['GET'])
+@login_required(role='admin')
+def search_companies():
+    query = request.args.get('query', '').strip()
+    if query:
+        companies = Company.query.filter(
+            Company.name.ilike(f'%{query}%')
+        ).all()
+    else:
+        companies = Company.query.all()
+    return render_template('companies.html', companies=companies, query=query)
+
+
+@app.route('/admin/student/<int:student_id>/edit', methods=['GET', 'POST'])
+@login_required(role='admin')
+def edit_student(student_id):
+    student = Student.query.get_or_404(student_id)
+    
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        phone = request.form.get('phone', '').strip()
+        department = request.form.get('department', '').strip()
+        year = request.form.get('year', '').strip()
+        cgpa_str = request.form.get('cgpa', '').strip()
+        
+        if not name or not email:
+            flash('Name and email are required.', 'error')
+            return render_template('edit_student.html', student=student)
+        
+        cgpa = None
+        if cgpa_str:
+            try:
+                cgpa = float(cgpa_str)
+                if cgpa < 0.0 or cgpa > 10.0:
+                    flash('CGPA must be between 0.0 and 10.0.', 'error')
+                    return render_template('edit_student.html', student=student)
+            except ValueError:
+                flash('Invalid CGPA format.', 'error')
+                return render_template('edit_student.html', student=student)
+        
+        try:
+            student.name = name
+            student.email = email
+            student.phone = phone if phone else None
+            student.department = department if department else None
+            student.year = int(year) if year else None
+            student.cgpa = cgpa
+            db.session.commit()
+            flash('Student updated successfully!', 'success')
+            return redirect(url_for('students'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error updating student.', 'error')
+            return render_template('edit_student.html', student=student)
+    
+    return render_template('edit_student.html', student=student)
+
+
+@app.route('/admin/student/<int:student_id>/delete', methods=['POST'])
+@login_required(role='admin')
+def delete_student(student_id):
+    student = Student.query.get_or_404(student_id)
+    
+    try:
+        Application.query.filter_by(student_id=student_id).delete()
+        Placement.query.filter_by(student_id=student_id).delete()
+        db.session.delete(student)
+        db.session.commit()
+        flash('Student deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error deleting student.', 'error')
+    
+    return redirect(url_for('students'))
+
+
+@app.route('/admin/student/<int:student_id>/toggle_active', methods=['POST'])
+@login_required(role='admin')
+def toggle_student_active(student_id):
+    student = Student.query.get_or_404(student_id)
+    
+    try:
+        student.is_active = not student.is_active
+        db.session.commit()
+        status = 'activated' if student.is_active else 'deactivated'
+        flash(f'Student {status} successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error updating student status.', 'error')
+    
+    return redirect(url_for('students'))
+
+
+@app.route('/admin/company/<int:company_id>/edit', methods=['GET', 'POST'])
+@login_required(role='admin')
+def edit_company(company_id):
+    company = Company.query.get_or_404(company_id)
+    
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        contact_email = request.form.get('contact_email', '').strip()
+        website = request.form.get('website', '').strip()
+        hr_contact = request.form.get('hr_contact', '').strip()
+        
+        if not name or not contact_email:
+            flash('Company name and contact email are required.', 'error')
+            return render_template('edit_company.html', company=company)
+        
+        try:
+            company.name = name
+            company.contact_email = contact_email
+            company.website = website if website else None
+            company.hr_contact = hr_contact if hr_contact else None
+            db.session.commit()
+            flash('Company updated successfully!', 'success')
+            return redirect(url_for('companies'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error updating company.', 'error')
+            return render_template('edit_company.html', company=company)
+    
+    return render_template('edit_company.html', company=company)
+
+
+@app.route('/admin/company/<int:company_id>/delete', methods=['POST'])
+@login_required(role='admin')
+def delete_company(company_id):
+    company = Company.query.get_or_404(company_id)
+    
+    try:
+        for drive in company.placement_drives:
+            Application.query.filter_by(drive_id=drive.id).delete()
+            db.session.delete(drive)
+        db.session.delete(company)
+        db.session.commit()
+        flash('Company deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error deleting company.', 'error')
+    
+    return redirect(url_for('companies'))
+
+
+@app.route('/admin/company/<int:company_id>/toggle_active', methods=['POST'])
+@login_required(role='admin')
+def toggle_company_active(company_id):
+    company = Company.query.get_or_404(company_id)
+    
+    try:
+        company.is_active = not company.is_active
+        db.session.commit()
+        status = 'activated' if company.is_active else 'deactivated'
+        flash(f'Company {status} successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error updating company status.', 'error')
+    
+    return redirect(url_for('companies'))
+
+
+@app.route('/admin/applications')
+@login_required(role='admin')
+def view_all_applications():
+    all_applications = Application.query.order_by(Application.application_date.desc()).all()
+    return render_template('all_applications.html', applications=all_applications)
+
+
+@app.route('/admin/create_placement/<int:app_id>', methods=['POST'])
+@login_required(role='admin')
+def create_placement_record(app_id):
+    application = Application.query.get_or_404(app_id)
+    
+    if application.status != 'Selected':
+        flash('Can only create placement for selected applications.', 'error')
+        return redirect(url_for('view_all_applications'))
+    
+    existing = Placement.query.filter_by(
+        student_id=application.student_id,
+        company_id=application.placement_drive.company_id
+    ).first()
+    
+    if existing:
+        flash('Placement record already exists for this student-company pair.', 'warning')
+        return redirect(url_for('view_all_applications'))
+    
+    try:
+        placement = Placement(
+            student_id=application.student_id,
+            company_id=application.placement_drive.company_id,
+            drive_id=application.drive_id,
+            position=application.placement_drive.job_title,
+            placement_date=datetime.utcnow().date(),
+            status='Placed'
+        )
+        db.session.add(placement)
+        db.session.commit()
+        flash('Placement record created successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error creating placement record.', 'error')
+    
+    return redirect(url_for('view_all_applications'))
 
 
 def init_db():

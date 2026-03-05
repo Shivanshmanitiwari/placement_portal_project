@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}All Applications - Admin - Placement Portal{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-file-alt"></i> All Applications</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        {% if applications %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Student Name</th>
+                            <th>Student Email</th>
+                            <th>Job Title</th>
+                            <th>Company</th>
+                            <th>Applied Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for app in applications %}
+                        <tr>
+                            <td>{{ app.id }}</td>
+                            <td>{{ app.student.name }}</td>
+                            <td>{{ app.student.email }}</td>
+                            <td>{{ app.placement_drive.job_title }}</td>
+                            <td>{{ app.placement_drive.company.name }}</td>
+                            <td>{{ app.application_date.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if app.status == 'Selected' else ('primary' if app.status == 'Shortlisted' else ('danger' if app.status == 'Rejected' else 'secondary')) }}">
+                                    {{ app.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if app.status == 'Selected' %}
+                                    <form method="POST" action="{{ url_for('create_placement_record', app_id=app.id) }}" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm btn-success">Create Placement</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">No applications submitted yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary mt-3">
+    <i class="fas fa-arrow-left"></i> Back to Dashboard
+</a>
+{% endblock %}

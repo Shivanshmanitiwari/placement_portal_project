@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}My Placement History - Placement Portal{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-history"></i> My Placement History</h2>
+<hr>
+
+<div class="card">
+    <div class="card-body">
+        {% if placements %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Company</th>
+                            <th>Position</th>
+                            <th>Placement Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for placement in placements %}
+                        <tr>
+                            <td>{{ placement.company.name }}</td>
+                            <td>{{ placement.position }}</td>
+                            <td>{{ placement.placement_date.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <span class="badge bg-success">{{ placement.status }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">No placement records yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<a href="{{ url_for('student_dashboard') }}" class="btn btn-secondary mt-3">
+    <i class="fas fa-arrow-left"></i> Back to Dashboard
+</a>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}{{ drive.job_title }} - Placement Portal{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-briefcase"></i> {{ drive.job_title }}</h2>
+<hr>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Drive Details</h5>
+            </div>
+            <div class="card-body">
+                <h4>{{ drive.job_title }}</h4>
+                <h6 class="text-muted mb-3">{{ drive.company.name }}</h6>
+                
+                <div class="mb-3">
+                    <strong>Job Description:</strong>
+                    <p>{{ drive.job_description or 'No description provided' }}</p>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Eligibility Criteria:</strong>
+                    <p>{{ drive.eligibility_criteria or 'No specific criteria mentioned' }}</p>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Minimum CGPA:</strong> {{ drive.min_cgpa or 'Not specified' }}</p>
+                        <p><strong>Application Deadline:</strong> {{ drive.application_deadline }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-{{ 'success' if drive.status == 'Approved' else 'warning' }}">
+                                {{ drive.status }}
+                            </span>
+                        </p>
+                        <p><strong>Total Applications:</strong> {{ drive.applications|length }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-building"></i> Company Information</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Company Name:</strong> {{ drive.company.name }}</p>
+                <p><strong>Website:</strong> 
+                    {% if drive.company.website %}
+                        <a href="{{ drive.company.website }}" target="_blank">{{ drive.company.website }}</a>
+                    {% else %}
+                        Not available
+                    {% endif %}
+                </p>
+                <p><strong>HR Contact:</strong> {{ drive.company.hr_contact or 'Not provided' }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0"><i class="fas fa-check-circle"></i> Application Status</h5>
+            </div>
+            <div class="card-body">
+                {% if application %}
+                    <div class="alert alert-info">
+                        <strong>You have already applied!</strong><br>
+                        Applied on: {{ application.application_date.strftime('%Y-%m-%d') }}<br>
+                        Status: <span class="badge bg-{{ 'success' if application.status == 'Selected' else ('primary' if application.status == 'Shortlisted' else ('danger' if application.status == 'Rejected' else 'secondary')) }}">
+                            {{ application.status }}
+                        </span>
+                    </div>
+                {% else %}
+                    {% if eligible %}
+                        <div class="alert alert-success">
+                            <strong>You are eligible!</strong><br>
+                            You can apply for this drive.
+                        </div>
+                        <form method="POST" action="{{ url_for('apply_to_drive', drive_id=drive.id) }}">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-paper-plane"></i> Apply Now
+                            </button>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-danger">
+                            <strong>Not Eligible</strong><br>
+                            <ul class="mb-0 mt-2">
+                                {% for reason in reasons %}
+                                <li>{{ reason }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<a href="{{ url_for('student_dashboard') }}" class="btn btn-secondary mt-3">
+    <i class="fas fa-arrow-left"></i> Back to Dashboard
+</a>
+{% endblock %}
