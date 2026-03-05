@@ -1,48 +1,61 @@
-{% extends "base.html" %}
-
-{% block title %}Create Placement Drive - Placement Portal{% endblock %}
-
-{% block content %}
-<h2><i class="fas fa-briefcase"></i> Create New Placement Drive</h2>
-<hr>
-
-<div class="card">
-    <div class="card-body">
-        <form method="POST" action="{{ url_for('create_drive') }}">
-            <div class="mb-3">
-                <label for="job_title" class="form-label">Job Title <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" id="job_title" name="job_title" required>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Placement Portal{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-graduation-cap"></i> Placement Portal
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    {% if session.user_id %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="fas fa-user"></i> {{ session.user_role|capitalize }}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logout') }}">
+                                <i class="fas fa-sign-out-alt"></i> Logout
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('login') }}">
+                                <i class="fas fa-sign-in-alt"></i> Login
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
             </div>
+        </div>
+    </nav>
 
-            <div class="mb-3">
-                <label for="job_description" class="form-label">Job Description</label>
-                <textarea class="form-control" id="job_description" name="job_description" rows="4"></textarea>
-            </div>
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
 
-            <div class="mb-3">
-                <label for="eligibility_criteria" class="form-label">Eligibility Criteria</label>
-                <textarea class="form-control" id="eligibility_criteria" name="eligibility_criteria" rows="3"></textarea>
-            </div>
-
-            <div class="mb-3">
-                <label for="min_cgpa" class="form-label">Minimum CGPA</label>
-                <input type="number" step="0.01" min="0" max="10" class="form-control" id="min_cgpa" name="min_cgpa" placeholder="e.g., 7.5">
-            </div>
-
-            <div class="mb-3">
-                <label for="application_deadline" class="form-label">Application Deadline <span class="text-danger">*</span></label>
-                <input type="date" class="form-control" id="application_deadline" name="application_deadline" required>
-            </div>
-
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> Create Drive
-                </button>
-                <a href="{{ url_for('company_dashboard') }}" class="btn btn-secondary">
-                    <i class="fas fa-times"></i> Cancel
-                </a>
-            </div>
-        </form>
+        {% block content %}{% endblock %}
     </div>
-</div>
-{% endblock %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
