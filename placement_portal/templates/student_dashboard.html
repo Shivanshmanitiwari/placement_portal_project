@@ -70,7 +70,14 @@
                             <p class="card-text">{{ drive.job_description[:100] if drive.job_description else 'No description available' }}...</p>
                             <p><strong>Deadline:</strong> {{ drive.application_deadline }}</p>
                             <p><strong>Min CGPA:</strong> {{ drive.min_cgpa or 'N/A' }}</p>
-                            <button class="btn btn-sm btn-primary">Apply Now</button>
+                            {% set already_applied = applications|selectattr('drive_id', 'equalto', drive.id)|list|length > 0 %}
+                            {% if already_applied %}
+                                <button class="btn btn-sm btn-secondary" disabled>Already Applied</button>
+                            {% else %}
+                                <form method="POST" action="{{ url_for('apply_to_drive', drive_id=drive.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-primary">Apply Now</button>
+                                </form>
+                            {% endif %}
                             <button class="btn btn-sm btn-secondary">View Details</button>
                         </div>
                     </div>

@@ -31,9 +31,9 @@
 
 <!-- Create Drive Button -->
 <div class="mb-4">
-    <button class="btn btn-success">
+    <a href="{{ url_for('create_drive') }}" class="btn btn-success">
         <i class="fas fa-plus"></i> Create New Placement Drive
-    </button>
+    </a>
 </div>
 
 <!-- My Placement Drives -->
@@ -68,7 +68,9 @@
                             </td>
                             <td>{{ drive.applications|length }}</td>
                             <td>
-                                <button class="btn btn-sm btn-primary">View</button>
+                                <a href="{{ url_for('view_drive_applications', drive_id=drive.id) }}" class="btn btn-sm btn-primary">
+                                    View ({{ drive.applications|length }})
+                                </a>
                                 <button class="btn btn-sm btn-warning">Edit</button>
                                 <button class="btn btn-sm btn-danger">Close</button>
                             </td>
@@ -79,9 +81,9 @@
             </div>
         {% else %}
             <p class="text-muted">You haven't created any placement drives yet.</p>
-            <button class="btn btn-success">
-                <i class="fas fa-plus"></i> Create Your First Drive
-            </button>
+            <a href="{{ url_for('create_drive') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create New Placement Drive
+            </a>
         {% endif %}
     </div>
 </div>

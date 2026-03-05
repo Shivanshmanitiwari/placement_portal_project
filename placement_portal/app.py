@@ -5,11 +5,23 @@ import os
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from functools import wraps
+import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config.from_object(config[os.getenv('FLASK_ENV', 'development')])
 
 db = SQLAlchemy(app)
+
+UPLOAD_FOLDER = 'static/resumes'
+ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 # Database Models
@@ -201,18 +213,21 @@ def index():
 
 
 @app.route('/students')
+@login_required(role='admin')
 def students():
     all_students = Student.query.all()
     return render_template('students.html', students=all_students)
 
 
 @app.route('/companies')
+@login_required(role='admin')
 def companies():
     all_companies = Company.query.all()
     return render_template('companies.html', companies=all_companies)
 
 
 @app.route('/placements')
+@login_required(role='admin')
 def placements():
     all_placements = Placement.query.all()
     return render_template('placements.html', placements=all_placements)
@@ -324,6 +339,124 @@ def company_dashboard():
     drives = PlacementDrive.query.filter_by(company_id=company_id).all()
     return render_template('company_dashboard.html', company=company, drives=drives)
 
+@app.route('/company/create_drive', methods=['GET', 'POST'])
+@login_required(role='company')
+def create_drive():
+    company = Company.query.get(session['user_id'])
+
+    #Defensive check
+    if not company.is_approved or company.is_blacklisted:
+        flash('Your company is not authorized to create a drive.', 'error')
+        return redirect(url_for('company_dashboard'))
+
+    if request.method == 'POST':
+        job_title = request.form.get('job_title', '').strip()
+        job_description = request.form.get('job_description', '').strip()
+        eligibility_criteria = request.form.get('eligibility_criteria', '').strip()
+        min_cgpa_str = request.form.get('min_cgpa', '').strip()
+        application_deadline = request.form.get('application_deadline', '').strip()
+
+        if not job_title:
+            flash('Job title is required.','error')
+            return render_template('create_drive.html')
+
+        if not application_deadline:
+            flash('Application deadline is required.','error')
+            return render_template('create_drive.html')
+        # Parse deadline 
+        try:
+            deadline= datetime.strptime(application_deadline, '%Y-%m-%d').date()
+            if deadline < datetime.today().date():
+                flash('Application deadline cannot be in the past.','error')
+                return render_template('create_drive.html')
+        except ValueError:
+            flash('Invalid date format. Use YYYY-MM-DD.', 'error')
+            return render_template('create_drive.html')
+
+        #parse min_cgpa
+        min_cgpa = None 
+        if min_cgpa_str:
+            try:
+                min_cgpa = float(min_cgpa_str)
+                if min_cgpa < 0.0 or min_cgpa > 10.0:
+                    flash('Minimum CGPA must be between 0.0 and 10.0.','error')
+                    return render_template('create_drive.html')
+            except ValueError:
+                flash('Invalid CGPA format.', 'error')
+                return render_template('create_drive.html')
+
+        #Create drive 
+        try:
+            new_drive = PlacementDrive(
+                company_id=company.id,
+                job_title=job_title,
+                job_description=job_description if job_description else None,
+                eligibility_criteria=eligibility_criteria if eligibility_criteria else None,
+                min_cgpa=min_cgpa,
+                application_deadline=deadline,
+                status='Pending'
+            )
+            
+            
+            db.session.add(new_drive)
+            db.session.commit()
+            flash('Placement drive created successfully! Waiting for admin approval.', 'success')
+            return redirect(url_for('company_dashboard'))   
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating drive: {str(e)}', 'error')
+            return render_template('create_drive.html')
+    
+    return render_template('create_drive.html')
+
+
+@app.route('/company/drive/<int:drive_id>/applications')
+@login_required(role='company')
+def view_drive_applications(drive_id):
+    company_id = session.get('user_id')
+    drive = PlacementDrive.query.get_or_404(drive_id)
+    
+    # Verify ownership
+    if drive.company_id != company_id:
+        flash('Unauthorized access.', 'error')
+        return redirect(url_for('company_dashboard'))
+    
+    applications = Application.query.filter_by(drive_id=drive_id).all()
+    
+    return render_template('drive_applications.html', drive=drive, applications=applications)
+
+
+@app.route('/company/application/<int:app_id>/update_status', methods=['POST'])
+@login_required(role='company')
+def update_application_status(app_id):
+    company_id = session.get('user_id')
+    application = Application.query.get_or_404(app_id)
+    
+    # Verify ownership
+    if application.placement_drive.company_id != company_id:
+        flash('Unauthorized access.', 'error')
+        return redirect(url_for('company_dashboard'))
+    
+    new_status = request.form.get('status')
+    
+    # Validate status
+    valid_statuses = ['Applied', 'Shortlisted', 'Selected', 'Rejected']
+    if new_status not in valid_statuses:
+        flash('Invalid status.', 'error')
+        return redirect(url_for('view_drive_applications', drive_id=application.drive_id))
+    
+    try:
+        application.status = new_status
+        db.session.commit()
+        flash(f'Application status updated to {new_status}.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error updating status.', 'error')
+    
+    return redirect(url_for('view_drive_applications', drive_id=application.drive_id))
+
+
+
 @app.route('/student/dashboard')
 @login_required(role='student')
 def student_dashboard():
@@ -337,7 +470,218 @@ def student_dashboard():
     return render_template('student_dashboard.html', student=student, applications=applications, approved_drives=approved_drives)
 
 
+@app.route('/student/apply/<int:drive_id>', methods=['POST'])
+@login_required(role='student')
+def apply_to_drive(drive_id):
+    student_id = session.get('user_id')
+    student = Student.query.get_or_404(student_id)
+    drive = PlacementDrive.query.get_or_404(drive_id)
+    
+    # Validation checks
+    if student.is_blacklisted:
+        flash('Your account is blacklisted and cannot apply.', 'error')
+        return redirect(url_for('student_dashboard'))
+    
+    if drive.status != 'Approved':
+        flash('This drive is not available for applications.', 'error')
+        return redirect(url_for('student_dashboard'))
+    
+    if drive.application_deadline < datetime.utcnow().date():
+        flash('Application deadline has passed.', 'error')
+        return redirect(url_for('student_dashboard'))
+    
+    # Check CGPA eligibility
+    if drive.min_cgpa and student.cgpa and student.cgpa < drive.min_cgpa:
+        flash(f'You do not meet the minimum CGPA requirement of {drive.min_cgpa}.', 'error')
+        return redirect(url_for('student_dashboard'))
+    
+    # Check for duplicate application
+    existing = Application.query.filter_by(student_id=student_id, drive_id=drive_id).first()
+    if existing:
+        flash('You have already applied to this drive.', 'warning')
+        return redirect(url_for('student_dashboard'))
+    
+    # Create application
+    try:
+        new_application = Application(
+            student_id=student_id,
+            drive_id=drive_id,
+            status='Applied'
+        )
+        db.session.add(new_application)
+        db.session.commit()
+        flash('Application submitted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error submitting application. Please try again.', 'error')
+    
+    return redirect(url_for('student_dashboard'))
 
+
+@app.route('/student/apply/<int:drive_id>', methods=['POST'])
+@login_required(role='student')
+def apply_to_drive(drive_id):
+    student_id = session.get('user_id')
+    student = Student.query.get_or_404(student_id)
+    drive = PlacementDrive.query.get_or_404(drive_id)
+    
+    # Validation checks
+    if student.is_blacklisted:
+        flash('Your account is blacklisted and cannot apply.', 'error')
+        return redirect(url_for('student_dashboard'))
+    
+    if drive.status != 'Approved':
+        flash('This drive is not available for applications.', 'error')
+        return redirect(url_for('student_dashboard'))
+    
+    if drive.application_deadline < datetime.utcnow().date():
+        flash('Application deadline has passed.', 'error')
+        return redirect(url_for('student_dashboard'))
+    
+    # Check CGPA eligibility
+    if drive.min_cgpa and student.cgpa and student.cgpa < drive.min_cgpa:
+        flash(f'You do not meet the minimum CGPA requirement of {drive.min_cgpa}.', 'error')
+        return redirect(url_for('student_dashboard'))
+    
+    # Check for duplicate application
+    existing = Application.query.filter_by(student_id=student_id, drive_id=drive_id).first()
+    if existing:
+        flash('You have already applied to this drive.', 'warning')
+        return redirect(url_for('student_dashboard'))
+    
+    # Create application
+    try:
+        new_application = Application(
+            student_id=student_id,
+            drive_id=drive_id,
+            status='Applied'
+        )
+        db.session.add(new_application)
+        db.session.commit()
+        flash('Application submitted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error submitting application. Please try again.', 'error')
+    
+    return redirect(url_for('student_dashboard'))
+
+
+@app.route('/student/apply/<int:drive_id>')
+@login_required(role='student')
+def view_drive_details(drive_id):
+    student_id = session.get('user_id')
+    student = Student.query.get_or_404(student_id)
+    drive = PlacementDrive.query.get_or_404(drive_id)
+
+    # Check if student already applied 
+    application = Application.query.filter_by(student_id=student_id, drive_id=drive_id).first
+    
+    #Check eligibilty
+    eligible = True
+    reasons = []
+
+    if drive.status != 'Approved':
+        eligible = False
+        reasons.append('Drive is not currently open for applications.')
+
+        if drive.application_deadline < datetime.utcnow().date():
+            eligible = False
+            reasons.append('Application deadline has passed.')
+
+        if drive.min_cgpa and student.cgpa and student.cgpa < drive.min_cgpa:
+            eligible = False
+            reasons.append(f'Your CGPA ({student.cgpa}) is below the required minimum of {drive.min_cgpa}.')
+
+        if student.is_blacklisted:
+            eligible = False
+            reasons.append('Your account is blacklisted')
+
+        return render_template('drive_details.html',
+                               drive=drive,
+                               application=application,
+                               eligible=eligible,
+                               reasons=reasons)
+
+@app.route('/student/edit_profile', methods=['GET', 'POST'])
+@login_required(role='student')
+def edit_student_profile():
+    student_id = session.get('user_id')
+    student = Student.query.get_or_404(student_id)
+    
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        phone = request.form.get('phone', '').strip()
+        department = request.form.get('department', '').strip()
+        year = request.form.get('year', '').strip()
+        cgpa_str = request.form.get('cgpa', '').strip()
+        
+        # Validation
+        if not name:
+            flash('Name is required.', 'error')
+            return render_template('edit_student_profile.html', student=student)
+        
+        # Parse CGPA
+        cgpa = None
+        if cgpa_str:
+            try:
+                cgpa = float(cgpa_str)
+                if cgpa < 0.0 or cgpa > 10.0:
+                    flash('CGPA must be between 0.0 and 10.0.', 'error')
+                    return render_template('edit_student_profile.html', student=student)
+            except ValueError:
+                flash('Invalid CGPA format.', 'error')
+                return render_template('edit_student_profile.html', student=student)
+        
+        try:
+            student.name = name
+            student.phone = phone if phone else None
+            student.department = department if department else None
+            student.year = year if year else None
+            student.cgpa = cgpa
+            
+            db.session.commit()
+            flash('Profile updated successfully!', 'success')
+            return redirect(url_for('student_dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error updating profile.', 'error')
+            return render_template('edit_student_profile.html', student=student)
+    
+    return render_template('edit_student_profile.html', student=student)
+
+@app.route('/student/upload_resume', methods=['POST'])
+@login_required(role='student')
+def upload_resume():
+    student_id = session.get('user_id')
+    student = Student.query.get_or_404(student_id)
+
+    if 'resume' not in request.files:
+        flash('No file part', 'error')
+        return redirect(url_for('student_dashboard'))
+
+    file = request.files['resume']
+
+    if file.filename == '':
+        flash('No selected file', 'error')
+        return redirect(url_for('student_dashboard'))
+
+    if file and allowed_file(file.filename):
+        filename = secure_filename(f"student_{student_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{file.filename}")
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+        try:
+            if student.resume_path and os.path.exists(student.resume_path):
+                os.remove(student.resume_path)
+            file.save(file_path)
+            student.resume_path = file_path
+            db.session.commit()
+            flash('Resume uploaded successfully!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Error uploading resume.', 'error')
+    else:
+        flash('Invalid file type. Allowed types: pdf, doc, docx.', 'error')
+    return redirect(url_for('student_dashboard'))
 
 # Company Approval
 @app.route('/admin/approve_company/<int:company_id>', methods=['POST'])
